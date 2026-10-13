@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # Database Service (PostgreSQL with pgvector)
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: kruchuai_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: kruchuai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Redis Cache & Task Queue
+  redis:
+    image: redis:7-alpine
+    container_name: kruchuai_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # Backend API & AI Engine
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kruchuai_backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/kruchuai
+      REDIS_URL: redis://redis:6379/0
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  # Frontend Next.js Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: kruchuai_frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:

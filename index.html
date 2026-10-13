@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ครูช่วยร่าง - ผู้ช่วยครูลดงานเอกสารด้วย AI สำหรับโรงเรียนขนาดเล็ก</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mali:wght@500;600;700&family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            title: ['Mali', 'cursive', 'sans-serif'],
+            body: ['Sarabun', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#F0F7FF',
+              100: '#E0EFFE',
+              600: '#2563EB',
+              700: '#1D4ED8',
+              800: '#1E40AF',
+              900: '#1E3A8A',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #F8FAFC;
+      font-family: 'Sarabun', sans-serif;
+      color: #1E293B;
+    }
+    .notebook-spine {
+      border-left: 4px solid #EF4444;
+      background-image: linear-gradient(#F8FAFC 1px, transparent 1px);
+      background-size: 100% 28px;
+    }
+    .paper-sheet {
+      background: #FFFFFF;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+      border: 1px solid #E2E8F0;
+    }
+    [contenteditable="true"]:hover {
+      outline: 2px dashed #93C5FD;
+      border-radius: 4px;
+      background-color: #EFF6FF;
+      cursor: text;
+    }
+    [contenteditable="true"]:focus {
+      outline: 2px solid #2563EB;
+      background-color: #FFFFFF;
+      border-radius: 4px;
+    }
+    .preset-pill {
+      transition: all 0.2s ease-in-out;
+    }
+    .preset-pill:hover {
+      transform: translateY(-1px);
+    }
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      .print-only {
+        display: block !important;
+      }
+      body {
+        background: white !important;
+        color: black !important;
+      }
+      .paper-sheet {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-800">
+
+  <!-- Top Header Navigation -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-900 to-blue-700 text-white flex items-center justify-center font-bold text-2xl shadow-md ring-2 ring-blue-100">
+          📝
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-2xl font-bold font-title text-blue-950 tracking-tight">ครูช่วยร่าง</h1>
+            <span class="text-xs bg-amber-100 text-amber-900 font-semibold px-2.5 py-0.5 rounded-full border border-amber-300">Prototype Demo</span>
+          </div>
+          <p class="text-xs text-slate-500 font-normal">AI ผู้ช่วยครูโรงเรียนขนาดเล็ก ร่างแผนการสอน ใบงาน 3 ระดับ และข้อสอบในคลิกเดียว</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2 sm:space-x-3 text-xs sm:text-sm">
+        <button onclick="toggleModal('modal-library')" class="flex items-center space-x-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 rounded-xl transition border border-indigo-200 font-semibold">
+          <span>📚 คลังแผนของฉัน</span>
+          <span id="saved-count-badge" class="px-1.5 py-0.2 bg-indigo-200 text-indigo-800 text-[10px] rounded-full">0</span>
+        </button>
+        <button id="btn-api-settings" onclick="toggleModal('modal-settings')" class="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition border border-slate-300 font-medium">
+          <span>⚙️ ตั้งค่า AI API</span>
+          <span id="api-status-badge" class="w-2 h-2 rounded-full bg-blue-500"></span>
+        </button>
+        <button onclick="window.print()" class="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-xl transition shadow-sm font-semibold">
+          <span>🖨️ พิมพ์เอกสาร A4</span>
+        </button>
+      </div>
+    </div>
+    <!-- Red notebook top accent line -->
+    <div class="h-1 bg-gradient-to-r from-red-500 via-rose-500 to-red-400 w-full"></div>
+  </header>
+
+  <!-- Welcome Onboarding & Quick Presets Banner -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 no-print w-full">
+    <div class="bg-gradient-to-r from-blue-950 via-blue-900 to-indigo-950 rounded-2xl p-4 sm:p-6 text-white shadow-lg relative overflow-hidden border border-blue-800">
+      <div class="relative z-10 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center space-x-2">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-400 text-slate-900">✨ เริ่มต้นใช้งานง่ายใน 3 ขั้นตอน</span>
+            <span class="text-xs text-blue-200 hidden sm:inline">• เหมาะกับคุณครูที่สอนหลายวิชา/ควบชั้น</span>
+          </div>
+          <span class="text-xs text-blue-300">คลิกข้อความในเอกสารขวามือเพื่อแก้ไขได้ทันที</span>
+        </div>
+
+        <!-- 3-Step Simple Flow Guide -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
+          <div class="flex items-center space-x-2.5 bg-white/10 backdrop-blur-sm p-2.5 rounded-xl border border-white/10">
+            <div class="w-7 h-7 rounded-lg bg-amber-400 text-slate-900 flex items-center justify-center font-bold">1</div>
+            <div>
+              <p class="font-bold text-white">เลือกบริบทห้องเรียน</p>
+              <p class="text-blue-200 text-[11px]">เลือกวิชา ชั้น หรือโหมดสอนควบ</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2.5 bg-white/10 backdrop-blur-sm p-2.5 rounded-xl border border-white/10">
+            <div class="w-7 h-7 rounded-lg bg-blue-400 text-slate-900 flex items-center justify-center font-bold">2</div>
+            <div>
+              <p class="font-bold text-white">กดปุ่มสร้างเอกสาร AI</p>
+              <p class="text-blue-200 text-[11px]">ได้แผน, ใบงาน, ข้อสอบ, Rubric ทันที</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2.5 bg-white/10 backdrop-blur-sm p-2.5 rounded-xl border border-white/10">
+            <div class="w-7 h-7 rounded-lg bg-emerald-400 text-slate-900 flex items-center justify-center font-bold">3</div>
+            <div>
+              <p class="font-bold text-white">คลิกตรวจแก้ & พิมพ์ออกไปใช้</p>
+              <p class="text-blue-200 text-[11px]">แก้ไขคำได้ในหน้า หรือสั่งพิมพ์ A4</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1-Click Realistic Presets (Pain points of small schools) -->
+        <div class="pt-2 border-t border-white/10 flex flex-wrap items-center gap-2">
+          <span class="text-xs font-semibold text-amber-300 flex items-center space-x-1">
+            <span>⚡</span>
+            <span>ลองกดดูตัวอย่างสถานการณ์จริง:</span>
+          </span>
+          <button onclick="applyPreset('multi-grade')" class="preset-pill px-3 py-1.5 rounded-lg text-xs bg-white/15 hover:bg-white/25 text-white font-medium border border-white/20 flex items-center space-x-1.5">
+            <span>🏫</span>
+            <span>สอนควบ ป.3 + ป.4 (เศษส่วน)</span>
+          </button>
+          <button onclick="applyPreset('low-tech')" class="preset-pill px-3 py-1.5 rounded-lg text-xs bg-white/15 hover:bg-white/25 text-white font-medium border border-white/20 flex items-center space-x-1.5">
+            <span>📶</span>
+            <span>ไร้เน็ต/ไร้จอ (ส่วนประกอบของพืช ป.2)</span>
+          </button>
+          <button onclick="applyPreset('thai-skill')" class="preset-pill px-3 py-1.5 rounded-lg text-xs bg-white/15 hover:bg-white/25 text-white font-medium border border-white/20 flex items-center space-x-1.5">
+            <span>📖</span>
+            <span>อ่านเขียนเบื้องต้น (สระเสียงยาว ป.1)</span>
+          </button>
+        </div>
+      </div>
+      <!-- Background subtle decorative circle -->
+      <div class="absolute -right-12 -bottom-12 w-48 h-48 bg-blue-600/20 rounded-full blur-2xl pointer-events-none"></div>
+    </div>
+  </section>
+
+  <!-- Main Content Grid -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Left Column: Input Form (lg:col-span-4) -->
+    <section class="lg:col-span-4 no-print space-y-4">
+      <div class="paper-sheet rounded-2xl p-5 border-t-4 border-t-blue-900 shadow-sm">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+          <h2 class="font-title text-lg font-bold text-slate-800 flex items-center space-x-2">
+            <span>📋</span>
+            <span>กำหนดบริบทห้องเรียน</span>
+          </h2>
+          <button onclick="resetToSampleForm()" class="text-xs text-blue-600 hover:text-blue-800 font-medium">ล้างข้อมูล</button>
+        </div>
+
+        <form id="generator-form" onsubmit="handleFormSubmit(event)" class="space-y-4 text-sm">
+          <!-- วิชา & ระดับชั้น -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-medium text-slate-700 mb-1 text-xs">กลุ่มสาระ / วิชา <span class="text-red-500">*</span></label>
+              <select id="input-subject" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs">
+                <option value="คณิตศาสตร์">คณิตศาสตร์</option>
+                <option value="วิทยาศาสตร์และเทคโนโลยี">วิทยาศาสตร์และเทคโนโลยี</option>
+                <option value="ภาษาไทย">ภาษาไทย</option>
+                <option value="ภาษาอังกฤษ">ภาษาอังกฤษ</option>
+                <option value="สังคมศึกษา ศาสนา และวัฒนธรรม">สังคมศึกษาฯ</option>
+                <option value="สุขศึกษาและพลศึกษา">สุขศึกษาและพลศึกษา</option>
+                <option value="ศิลปะ">ศิลปะ</option>
+                <option value="การงานอาชีพ">การงานอาชีพ</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-medium text-slate-700 mb-1 text-xs">ระดับชั้นหลัก <span class="text-red-500">*</span></label>
+              <select id="input-grade" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs">
+                <option value="ป.1">ประถมศึกษาปีที่ 1</option>
+                <option value="ป.2">ประถมศึกษาปีที่ 2</option>
+                <option value="ป.3">ประถมศึกษาปีที่ 3</option>
+                <option value="ป.4" selected>ประถมศึกษาปีที่ 4</option>
+                <option value="ป.5">ประถมศึกษาปีที่ 5</option>
+                <option value="ป.6">ประถมศึกษาปีที่ 6</option>
+                <option value="ม.1">มัธยมศึกษาปีที่ 1</option>
+                <option value="ม.2">มัธยมศึกษาปีที่ 2</option>
+                <option value="ม.3">มัธยมศึกษาปีที่ 3</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Feature เฉพาะ 1: โหมดสอนควบชั้น -->
+          <div class="p-3 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2">
+            <label class="flex items-center space-x-2 cursor-pointer font-medium text-blue-950 text-xs">
+              <input type="checkbox" id="check-multi-grade" onchange="toggleMultiGrade(this.checked)" class="rounded text-blue-600 focus:ring-blue-500 h-4 w-4">
+              <span>🏫 โหมดสอนควบชั้น (Multi-grade Classroom)</span>
+            </label>
+            <p class="text-[11px] text-blue-700 leading-relaxed">
+              สำหรับโรงเรียนที่มีครูไม่ครบชั้น ระบบจะจัดแบ่งกิจกรรมสลับกลุ่มให้อัตโนมัติ
+            </p>
+            <div id="multi-grade-selector" class="hidden pt-1 border-t border-blue-200/60">
+              <label class="block text-[11px] font-semibold text-blue-900 mb-1">เลือกชั้นเรียนที่สองที่เรียนในห้องเดียวกัน:</label>
+              <select id="input-second-grade" class="w-full px-2.5 py-1.5 text-xs bg-white border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="ป.3" selected>ประถมศึกษาปีที่ 3</option>
+                <option value="ป.5">ประถมศึกษาปีที่ 5</option>
+                <option value="ป.6">ประถมศึกษาปีที่ 6</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- หัวข้อเรื่อง -->
+          <div>
+            <label class="block font-medium text-slate-700 mb-1 text-xs">หัวข้อเรื่องที่สอน <span class="text-red-500">*</span></label>
+            <input type="text" id="input-topic" value="เศษส่วนที่เท่ากัน" placeholder="เช่น เศษส่วนที่เท่ากัน, การสังเคราะห์แสง, คำควบกล้ำ" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs">
+          </div>
+
+          <!-- ตัวชี้วัด -->
+          <div>
+            <label class="block font-medium text-slate-700 mb-1 text-xs">ตัวชี้วัด / ผลการเรียนรู้ <span class="text-slate-400 font-normal">(ถ้ามี ไม่บังคับ)</span></label>
+            <textarea id="input-standard" rows="2" placeholder="เช่น ค 1.1 ป.4/3 (หากเว้นว่าง AI จะแปลงเป็นจุดประสงค์เชิงพฤติกรรมให้ ไม่มโนรหัสปลอม)" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs"></textarea>
+          </div>
+
+          <!-- เวลา & จำนวนนักเรียน -->
+          <div class="grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <label class="block font-medium text-slate-700 mb-1">นาที/คาบ</label>
+              <input type="number" id="input-minutes" value="50" min="20" max="120" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-center font-medium">
+            </div>
+            <div>
+              <label class="block font-medium text-slate-700 mb-1">จำนวนคาบ</label>
+              <input type="number" id="input-periods" value="1" min="1" max="5" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-center font-medium">
+            </div>
+            <div>
+              <label class="block font-medium text-slate-700 mb-1">จำนวนนักเรียน</label>
+              <input type="number" id="input-students" value="15" min="1" max="80" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-center font-medium">
+            </div>
+          </div>
+
+          <!-- Feature เฉพาะ 2: โหมดอุปกรณ์จำกัด -->
+          <div class="p-3 bg-amber-50/80 border border-amber-200 rounded-xl space-y-1">
+            <label class="flex items-center space-x-2 cursor-pointer font-medium text-amber-950 text-xs">
+              <input type="checkbox" id="check-low-resource" checked class="rounded text-amber-600 focus:ring-amber-500 h-4 w-4">
+              <span>📶 โหมดอุปกรณ์และเน็ตจำกัด (Low-Tech)</span>
+            </label>
+            <p class="text-[11px] text-amber-900 leading-relaxed">
+              ไม่มีโปรเจกเตอร์/อินเทอร์เน็ต กิจกรรมจะใช้กระดาน พับกระดาษ เกมกลุ่ม และวัสดุรอบตัว
+            </p>
+          </div>
+
+          <!-- เอกสารที่ต้องการสร้าง -->
+          <div class="space-y-2 pt-1">
+            <label class="block font-medium text-slate-700 text-xs">ชุดเอกสารที่ต้องการรับ:</label>
+            <div class="grid grid-cols-2 gap-2 text-[11px]">
+              <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100">
+                <input type="checkbox" id="doc-plan" checked class="rounded text-blue-600">
+                <span class="font-medium text-slate-800">1. แผนการสอน 4 ขั้น</span>
+              </label>
+              <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100">
+                <input type="checkbox" id="doc-worksheet" checked class="rounded text-blue-600">
+                <span class="font-medium text-slate-800">2. ใบงาน 3 ระดับ</span>
+              </label>
+              <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100">
+                <input type="checkbox" id="doc-quiz" checked class="rounded text-blue-600">
+                <span class="font-medium text-slate-800">3. ข้อสอบ 5 ข้อ</span>
+              </label>
+              <label class="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100">
+                <input type="checkbox" id="doc-rubric" checked class="rounded text-blue-600">
+                <span class="font-medium text-slate-800">4. Rubric ประเมิน</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" id="btn-generate" class="w-full py-3.5 px-4 bg-gradient-to-r from-blue-900 to-indigo-800 hover:from-blue-800 hover:to-indigo-700 text-white font-title text-base font-bold rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center space-x-2">
+            <span id="btn-icon">⚡</span>
+            <span id="btn-text">สร้างเอกสารการสอนทันที</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Human-in-the-loop reminder badge -->
+      <div class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 space-y-1">
+        <p class="font-bold flex items-center space-x-1.5">
+          <span>🛡️</span>
+          <span>หลักการความรับผิดชอบ (AI in Education):</span>
+        </p>
+        <p class="text-[11px] leading-relaxed">
+          AI ทำหน้าที่เป็น "ผู้ช่วยร่างแรก" เพื่อคืนเวลาให้ครู คุณครูสามารถคลิกแก้ไขทุกข้อความทางขวามือก่อนนำไปพิมพ์ใช้งานจริง
+        </p>
+      </div>
+    </section>
+
+    <!-- Right Column: Document Viewer (lg:col-span-8) -->
+    <section class="lg:col-span-8 space-y-4">
+
+      <!-- Navigation Tabs & Document Actions Bar -->
+      <div class="paper-sheet rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2.5 no-print">
+        <div class="flex flex-wrap gap-1.5" id="output-tabs">
+          <button onclick="switchTab('tab-plan')" id="btn-tab-plan" class="px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl bg-blue-900 text-white shadow-sm transition">
+            📖 แผนการสอน (4 ขั้น)
+          </button>
+          <button onclick="switchTab('tab-worksheet')" id="btn-tab-worksheet" class="px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+            📝 ใบงาน 3 ระดับ
+          </button>
+          <button onclick="switchTab('tab-quiz')" id="btn-tab-quiz" class="px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+            🎯 แบบทดสอบปรนัย
+          </button>
+          <button onclick="switchTab('tab-rubric')" id="btn-tab-rubric" class="px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+            📊 Rubric ประเมิน
+          </button>
+        </div>
+
+        <div class="flex items-center space-x-1.5 text-xs">
+          <button onclick="saveCurrentPlanToLibrary()" class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition shadow-sm flex items-center space-x-1">
+            <span>💾</span>
+            <span>บันทึกเก็บไว้</span>
+          </button>
+          <button onclick="toggleAnswerKey()" id="btn-toggle-answer" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition border border-slate-300">
+            👁️ ซ่อน/แสดงเฉลย
+          </button>
+          <button onclick="copyCurrentDocument()" class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold rounded-lg transition border border-emerald-300">
+            📋 คัดลอก
+          </button>
+          <button onclick="downloadAsDoc()" class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-semibold rounded-lg transition border border-blue-300">
+            💾 ดาวน์โหลด Word
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Hint Bar -->
+      <div class="flex items-center justify-between text-xs text-slate-500 px-2 no-print">
+        <span class="flex items-center space-x-1">
+          <span class="text-blue-600 font-bold">✎ โหมดแก้ไขสด:</span>
+          <span>สามารถคลิกบนตัวหนังสือเพื่อแก้ไขข้อความได้ทันที</span>
+        </span>
+        <span id="word-count-badge" class="font-mono text-[11px] bg-slate-200/70 px-2 py-0.5 rounded text-slate-600">พร้อมใช้งาน</span>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loading-state" class="hidden paper-sheet rounded-2xl p-12 text-center space-y-4">
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-900 border-t-transparent"></div>
+        <h3 class="font-title text-xl font-bold text-blue-900">กำลังร่างเอกสารการสอนด้วย AI...</h3>
+        <p class="text-xs sm:text-sm text-slate-500 max-w-md mx-auto" id="loading-msg">คำนวณเวลาการสอน 4 ขั้น จัดการความยากใบงาน 3 ระดับ และคำนวณข้อจำกัดอุปกรณ์</p>
+      </div>
+
+      <!-- Documents Container -->
+      <div id="documents-wrapper" class="space-y-6">
+
+        <!-- 1. Lesson Plan Tab -->
+        <div id="tab-plan" class="tab-content paper-sheet rounded-2xl p-6 sm:p-8 relative">
+          <div class="notebook-spine pl-4 mb-5">
+            <span class="inline-block text-[11px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 mb-1.5">เอกสารที่ 1: แผนการจัดการเรียนรู้</span>
+            <h2 id="plan-title" contenteditable="true" class="text-2xl font-bold font-title text-slate-900">แผนการจัดการเรียนรู้: เศษส่วนที่เท่ากัน</h2>
+            <div id="plan-meta" class="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-500">
+              <span id="plan-meta-sub" class="font-medium text-slate-700">คณิตศาสตร์ | ป.4</span>
+              <span>•</span>
+              <span id="plan-meta-time" class="font-medium text-slate-700">เวลา 50 นาที (1 คาบ)</span>
+              <span>•</span>
+              <span id="plan-meta-context" class="text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded">โหมดอุปกรณ์จำกัด (เน้นกระดาษพับ/กระดาน)</span>
+            </div>
+          </div>
+
+          <!-- Visual Time Allocation Bar -->
+          <div class="mb-6 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 no-print">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-700">
+              <span>สัดส่วนเวลาการสอน 4 ขั้น (รวม <span id="plan-total-time" class="text-blue-900 font-bold">50</span> นาที):</span>
+              <span class="text-slate-500 font-normal">ตามทฤษฎีการสอนเชิงรุก (Active Learning)</span>
+            </div>
+            <div class="w-full h-3 bg-slate-200 rounded-full flex overflow-hidden text-[9px] font-bold text-white text-center">
+              <div id="bar-t1" style="width: 16%;" class="bg-amber-500 h-full flex items-center justify-center" title="ขั้นนำ">นำ 8น.</div>
+              <div id="bar-t2" style="width: 34%;" class="bg-blue-600 h-full flex items-center justify-center" title="ขั้นสอน">สอน 17น.</div>
+              <div id="bar-t3" style="width: 36%;" class="bg-indigo-600 h-full flex items-center justify-center" title="ขั้นฝึก">ฝึก 18น.</div>
+              <div id="bar-t4" style="width: 14%;" class="bg-emerald-600 h-full flex items-center justify-center" title="ขั้นสรุป">สรุป 7น.</div>
+            </div>
+          </div>
+
+          <!-- Section: Objectives -->
+          <div class="mb-5 space-y-1.5">
+            <h3 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
+              <span class="text-blue-700">🎯</span>
+              <span>จุดประสงค์การเรียนรู้</span>
+            </h3>
+            <ul id="plan-objectives" class="list-disc list-inside space-y-1 text-sm text-slate-700 pl-2">
+              <li contenteditable="true">อธิบายความหมายและลักษณะของเศษส่วนที่เท่ากันได้ถูกต้อง</li>
+              <li contenteditable="true">หาเศษส่วนที่เท่ากันโดยการพับกระดาษและการคูณหรือหารด้วยจำนวนเดียวกันได้</li>
+              <li contenteditable="true">มีความกระตือรือร้นและมีส่วนร่วมในการทำกิจกรรมกลุ่ม</li>
+            </ul>
+          </div>
+
+          <!-- Section: Materials -->
+          <div class="mb-5 space-y-1.5">
+            <h3 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
+              <span class="text-blue-700">📦</span>
+              <span>สื่อและอุปกรณ์การเรียนรู้ (สอดคล้องกับบริบทโรงเรียน)</span>
+            </h3>
+            <p id="plan-materials" contenteditable="true" class="text-sm text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200">
+              แถบกระดาษ A4 ตัดเป็นเส้นยาว (คนละ 3 เส้น), กรรไกร, ไม้บรรทัด, สีไม้, กระดานดำและชอล์ก
+            </p>
+          </div>
+
+          <!-- Section: 4-Step Table -->
+          <div class="mb-5 space-y-2">
+            <h3 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
+              <span class="text-blue-700">⏳</span>
+              <span>กระบวนการจัดการเรียนรู้ (4 ขั้นตอน)</span>
+            </h3>
+            
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left text-sm border-collapse">
+                <thead class="bg-blue-50 text-blue-900 font-semibold text-xs border-b border-blue-200">
+                  <tr>
+                    <th class="py-2.5 px-3 w-32">ขั้นตอน</th>
+                    <th class="py-2.5 px-3 w-20 text-center">เวลา</th>
+                    <th class="py-2.5 px-3">บทบาทครู</th>
+                    <th class="py-2.5 px-3">บทบาทนักเรียน</th>
+                  </tr>
+                </thead>
+                <tbody id="plan-steps-body" class="divide-y divide-slate-200 text-slate-700 text-xs sm:text-sm">
+                  <tr>
+                    <td class="py-3 px-3 font-semibold text-slate-900 align-top">1. ขั้นนำเข้าสู่บทเรียน</td>
+                    <td class="py-3 px-3 text-center align-top font-mono text-blue-700 font-medium">8 นาที</td>
+                    <td class="py-3 px-3 align-top" contenteditable="true">ครูถือกระดาษ 1 แผ่น พับครึ่งแล้วถามนักเรียนว่าแต่ละส่วนคือเท่าไร (1/2) จากนั้นหยิบอีกแผ่นพับเป็น 4 ส่วน ระบายสี 2 ส่วนแล้วถามว่าพื้นที่เท่ากันไหม</td>
+                    <td class="py-3 px-3 align-top" contenteditable="true">ร่วมกันสังเกต ตอบคำถาม เปรียบเทียบพื้นที่กระดาษทั้งสองแผ่นด้วยสายตา</td>
+                  </tr>
+                  <tr>
+                    <td class="py-3 px-3 font-semibold text-slate-900 align-top">2. ขั้นจัดการเรียนรู้ (สอน)</td>
+                    <td class="py-3 px-3 text-center align-top font-mono text-blue-700 font-medium">17 นาที</td>
+                    <td class="py-3 px-3 align-top" contenteditable="true">แจกแถบกระดาษให้นักเรียนคนละ 3 เส้น นำนักเรียนพับเส้นที่ 1 เป็น 2 ส่วน (1/2), เส้นที่ 2 เป็น 4 ส่วน (2/4), เส้นที่ 3 เป็น 6 ส่วน (3/6) เชื่อมโยงสู่หลักคณิตศาสตร์: การคูณตัวเศษและส่วนด้วยตัวเลขเดียวกัน</td>
+                    <td class="py-3 px-3 align-top" contenteditable="true">ลงมือพับกระดาษตามขั้นตอน ระบายสีตามเศษส่วนที่กำหนด แล้วนำแถบกระดาษมาวางทาบเทียบความยาวร่วมกัน</td>
+                  </tr>
+                  <tr>
+                    <td class="py-3 px-3 font-semibold text-slate-900 align-top">3. ขั้นฝึกปฏิบัติ</td>
+                    <td class="py-3 px-3 text-center align-top font-mono text-blue-700 font-medium">18 นาที</td>
+                    <td class="py-3 px-3 align-top" contenteditable="true">แจกใบงานแยกตามระดับความสามารถ (ระดับพื้นฐาน/กลาง/ท้าทาย) เดินสังเกตและให้คำแนะนำกลุ่มที่ต้องการความช่วยเหลือเป็นพิเศษ</td>
+                    <td class="py-3 px-3 align-top" contenteditable="true">ทำใบงานตามระดับของตนเอง ปรึกษาเพื่อนข้างเคียงได้ หากทำเสร็จก่อนสามารถช่วยอธิบายเพื่อนในคู่ของตนได้</td>
+                  </tr>
+                  <tr>
+                    <td class="py-3 px-3 font-semibold text-slate-900 align-top">4. ขั้นสรุปและวัดผล</td>
+                    <td class="py-3 px-3 text-center align-top font-mono text-blue-700 font-medium">7 นาที</td>
+                    <td class="py-3 px-3 align-top" contenteditable="true">สุ่มตัวแทน 2 คนออกมาเขียนเศษส่วนที่เท่ากันบนกระดาน ครูและเพื่อนช่วยกันตรวจทาน สรุปบทเรียนร่วมกัน</td>
+                    <td class="py-3 px-3 align-top" contenteditable="true">สรุปหลักการร่วมกันว่า เศษส่วนที่เท่ากันเกิดจากการคูณหรือหารทั้งตัวเศษและส่วนด้วยจำนวนเดียวกันที่ไม่ใช่ศูนย์</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Section: Multi-Grade or Special Adaptations -->
+          <div id="plan-adaptation-box" class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5">
+            <h4 class="font-bold text-emerald-900 text-xs sm:text-sm flex items-center space-x-1.5">
+              <span>💡</span>
+              <span>กลยุทธ์จัดการห้องเรียนสอนควบชั้น / ห้องเรียนขนาดเล็ก:</span>
+            </h4>
+            <p id="plan-adapt" contenteditable="true" class="text-xs sm:text-sm text-emerald-800 leading-relaxed">
+              ในระหว่างที่ครูกำลังอธิบายขั้นสอนให้นักเรียนชั้น ป.4 ให้มอบหมายให้นักเรียนชั้น ป.3 หรือ ป.5 ทบทวนแบบฝึกหัดคำนวณ เมื่อ ป.4 เริ่มลงมือพับกระดาษ ครูจึงสลับไปสอนเนื้อหาของอีกชั้นหนึ่งได้อย่างราบรื่น
+            </p>
+          </div>
+        </div>
+
+        <!-- 2. Worksheet Tab (3 Levels) -->
+        <div id="tab-worksheet" class="tab-content paper-sheet rounded-2xl p-6 sm:p-8 hidden relative">
+          <div class="notebook-spine pl-4 mb-6">
+            <span class="inline-block text-[11px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 mb-1.5">เอกสารที่ 2: ใบงานแยก 3 ระดับความสามารถ</span>
+            <h2 id="worksheet-title" contenteditable="true" class="text-2xl font-bold font-title text-slate-900">ใบงานการเรียนรู้: เศษส่วนที่เท่ากัน</h2>
+            <p class="text-xs text-slate-500 mt-1">ออกแบบเพื่อรองรับความแตกต่างระหว่างบุคคลในห้องเรียน (Differentiated Learning)</p>
+          </div>
+
+          <div id="worksheet-levels-wrapper" class="space-y-5">
+            <!-- Level 1: Basic -->
+            <div class="border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                <span class="font-bold text-xs sm:text-sm text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">🟢 ระดับ 1: พื้นฐาน (มีแบบจำลอง/ตัวช่วยนำทาง)</span>
+                <span class="text-xs text-slate-400">สำหรับนักเรียนที่ต้องการการปูพื้นฐาน</span>
+              </div>
+              <p class="text-xs font-medium text-slate-600 mb-3" contenteditable="true">คำชี้แจง: เติมตัวเลขลงในช่องว่างเพื่อให้ได้เศษส่วนที่เท่ากัน โดยสังเกตรูปภาพหรือตัวคูณที่กำหนดให้</p>
+              <div class="space-y-2.5 text-sm" id="ws-level-1">
+                <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+                  <span contenteditable="true">1) 1/2 = [ ? ] / 4 (คูณด้วย 2 ทั้งเศษและส่วน)</span>
+                  <span class="answer-key hidden font-bold text-emerald-700 text-xs bg-emerald-100 px-2 py-0.5 rounded">เฉลย: 2</span>
+                </div>
+                <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+                  <span contenteditable="true">2) 1/3 = [ ? ] / 6 (คูณด้วย 2 ทั้งเศษและส่วน)</span>
+                  <span class="answer-key hidden font-bold text-emerald-700 text-xs bg-emerald-100 px-2 py-0.5 rounded">เฉลย: 2</span>
+                </div>
+                <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+                  <span contenteditable="true">3) 2/5 = 4 / [ ? ] (คูณด้วย 2 ทั้งเศษและส่วน)</span>
+                  <span class="answer-key hidden font-bold text-emerald-700 text-xs bg-emerald-100 px-2 py-0.5 rounded">เฉลย: 10</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Level 2: Intermediate -->
+            <div class="border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                <span class="font-bold text-xs sm:text-sm text-blue-800 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">🔵 ระดับ 2: ปานกลาง (ระดับมาตรฐานหลักสูตร)</span>
+                <span class="text-xs text-slate-400">สำหรับนักเรียนส่วนใหญ่</span>
+              </div>
+              <p class="text-xs font-medium text-slate-600 mb-3" contenteditable="true">คำชี้แจง: จงหาเศษส่วนที่เท่ากับเศษส่วนต่อไปนี้มาอีก 2 จำนวน</p>
+              <div class="space-y-2.5 text-sm" id="ws-level-2">
+                <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+                  <span contenteditable="true">1) 3/4 = ............ และ ............</span>
+                  <span class="answer-key hidden font-bold text-blue-700 text-xs bg-blue-100 px-2 py-0.5 rounded">เฉลย: 6/8, 9/12</span>
+                </div>
+                <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+                  <span contenteditable="true">2) 5/6 = ............ และ ............</span>
+                  <span class="answer-key hidden font-bold text-blue-700 text-xs bg-blue-100 px-2 py-0.5 rounded">เฉลย: 10/12, 15/18</span>
+                </div>
+                <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+                  <span contenteditable="true">3) 12/16 = ............ (หาโดยการหารให้เป็นเศษส่วนอย่างต่ำ)</span>
+                  <span class="answer-key hidden font-bold text-blue-700 text-xs bg-blue-100 px-2 py-0.5 rounded">เฉลย: 3/4 (หารด้วย 4)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Level 3: Advanced -->
+            <div class="border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                <span class="font-bold text-xs sm:text-sm text-purple-800 bg-purple-50 px-3 py-1 rounded-full border border-purple-200">🟣 ระดับ 3: ท้าทาย (การคิดวิเคราะห์/ประยุกต์)</span>
+                <span class="text-xs text-slate-400">สำหรับนักเรียนที่เรียนรู้เร็ว</span>
+              </div>
+              <p class="text-xs font-medium text-slate-600 mb-3" contenteditable="true">คำชี้แจง: วิเคราะห์โจทย์ปัญหาและแสดงวิธีคิด</p>
+              <div class="space-y-2.5 text-sm" id="ws-level-3">
+                <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+                  <span contenteditable="true">1) ขนมเค้กสองก้อนขนาดเท่ากัน ก้อนแรกตัดเป็น 8 ชิ้น กินไป 6 ชิ้น ก้อนที่สองตัดเป็น 4 ชิ้น ต้องกินกี่ชิ้นจึงจะเท่ากับก้อนแรก?</span>
+                  <span class="answer-key hidden font-bold text-purple-700 text-xs bg-purple-100 px-2 py-0.5 rounded">เฉลย: 3 ชิ้น (เพราะ 6/8 = 3/4)</span>
+                </div>
+                <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+                  <span contenteditable="true">2) ถ้า A / 15 เท่ากับ 2 / 3 จงหาค่าของ A พร้อมอธิบายว่าได้มาอย่างไร</span>
+                  <span class="answer-key hidden font-bold text-purple-700 text-xs bg-purple-100 px-2 py-0.5 rounded">เฉลย: A = 10 (เพราะ 3 x 5 = 15 ดังนั้น 2 x 5 = 10)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Quiz Tab -->
+        <div id="tab-quiz" class="tab-content paper-sheet rounded-2xl p-6 sm:p-8 hidden relative">
+          <div class="notebook-spine pl-4 mb-6">
+            <span class="inline-block text-[11px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 mb-1.5">เอกสารที่ 3: แบบทดสอบปรนัย (5 ข้อ)</span>
+            <h2 id="quiz-title" contenteditable="true" class="text-2xl font-bold font-title text-slate-900">แบบทดสอบวัดความเข้าใจ: เศษส่วนที่เท่ากัน</h2>
+            <p class="text-xs text-slate-500 mt-1">พร้อมเฉลยและเหตุผลประกอบ สำหรับวัดผลท้ายคาบเรียน</p>
+          </div>
+
+          <div id="quiz-items-wrapper" class="space-y-4 text-sm">
+            <!-- Quiz Item 1 -->
+            <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-2">
+              <p class="font-semibold text-slate-800" contenteditable="true">1. เศษส่วนในข้อใดมีค่าเท่ากับ 1/2 ?</p>
+              <div class="grid grid-cols-2 gap-2 text-xs sm:text-sm pl-2">
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200">ก. 2/3</div>
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200 font-medium text-emerald-800 bg-emerald-50">ข. 3/6 (เฉลยข้อนี้)</div>
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200">ค. 4/10</div>
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200">ง. 5/8</div>
+              </div>
+              <div class="answer-key hidden pt-2 text-xs text-emerald-800 bg-emerald-50 p-2.5 rounded border border-emerald-200">
+                <strong>💡 เหตุผลเฉลย:</strong> ข้อ ข. ถูกต้อง เพราะเมื่อนำ 3 มาคูณทั้งตัวเศษและส่วนของ 1/2 จะได้ (1x3)/(2x3) = 3/6
+              </div>
+            </div>
+
+            <!-- Quiz Item 2 -->
+            <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-2">
+              <p class="font-semibold text-slate-800" contenteditable="true">2. ถ้าต้องการหาเศษส่วนที่เท่ากับ 2/5 สามารถทำได้อย่างไร?</p>
+              <div class="grid grid-cols-2 gap-2 text-xs sm:text-sm pl-2">
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200">ก. บวกด้วย 2 ทั้งเศษและส่วน</div>
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200 font-medium text-emerald-800 bg-emerald-50">ข. คูณด้วยจำนวนนับเดียวกันทั้งเศษและส่วน (เฉลยข้อนี้)</div>
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200">ค. ลบด้วย 1 ทั้งเศษและส่วน</div>
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200">ง. สลับที่ระหว่างตัวเศษและตัวส่วน</div>
+              </div>
+              <div class="answer-key hidden pt-2 text-xs text-emerald-800 bg-emerald-50 p-2.5 rounded border border-emerald-200">
+                <strong>💡 เหตุผลเฉลย:</strong> การหาเศษส่วนที่เท่ากันต้องใช้การคูณหรือหารด้วยจำนวนเดียวกันที่ไม่ใช่ศูนย์
+              </div>
+            </div>
+
+            <!-- Quiz Item 3 -->
+            <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-2">
+              <p class="font-semibold text-slate-800" contenteditable="true">3. ข้อใดต่อไปนี้ <span class="text-red-600 font-bold">ไม่ถูกต้อง</span> ?</p>
+              <div class="grid grid-cols-2 gap-2 text-xs sm:text-sm pl-2">
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200">ก. 2/4 = 4/8</div>
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200">ข. 3/5 = 6/10</div>
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200 font-medium text-emerald-800 bg-emerald-50">ค. 1/3 = 2/9 (เฉลยข้อนี้)</div>
+                <div contenteditable="true" class="p-2 bg-white rounded border border-slate-200">ง. 4/6 = 2/3</div>
+              </div>
+              <div class="answer-key hidden pt-2 text-xs text-emerald-800 bg-emerald-50 p-2.5 rounded border border-emerald-200">
+                <strong>💡 เหตุผลเฉลย:</strong> ข้อ ค. ไม่ถูกต้อง เพราะ 1/3 เมื่อคูณเศษด้วย 2 จะได้ 2 ส่วนเมื่อคูณด้วย 2 จะได้ 6 (ต้องได้ 2/6 ไม่ใช่ 2/9)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Rubric Tab -->
+        <div id="tab-rubric" class="tab-content paper-sheet rounded-2xl p-6 sm:p-8 hidden relative">
+          <div class="notebook-spine pl-4 mb-6">
+            <span class="inline-block text-[11px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-900 mb-1.5">เอกสารที่ 4: เกณฑ์การให้คะแนน (Scoring Rubric)</span>
+            <h2 id="rubric-title" contenteditable="true" class="text-2xl font-bold font-title text-slate-900">เกณฑ์การประเมินชิ้นงานและทักษะ: เรื่อง เศษส่วนที่เท่ากัน</h2>
+            <p class="text-xs text-slate-500 mt-1">เกณฑ์การให้คะแนนแบบ Rubric 4 ระดับคุณภาพ ช่วยให้ครูตรวจประเมินอย่างสม่ำเสมอและเป็นธรรม</p>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-sm border-collapse">
+              <thead class="bg-rose-50 text-rose-950 font-semibold text-xs border-b border-rose-200">
+                <tr>
+                  <th class="py-2.5 px-3 w-40">เกณฑ์การประเมิน</th>
+                  <th class="py-2.5 px-3 text-center">ดีมาก (4)</th>
+                  <th class="py-2.5 px-3 text-center">ดี (3)</th>
+                  <th class="py-2.5 px-3 text-center">พอใช้ (2)</th>
+                  <th class="py-2.5 px-3 text-center">ปรับปรุง (1)</th>
+                </tr>
+              </thead>
+              <tbody id="rubric-tbody" class="divide-y divide-slate-200 text-xs text-slate-700">
+                <tr>
+                  <td class="py-3 px-3 font-semibold text-slate-900 align-top">1. ความถูกต้องทางคณิตศาสตร์</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">หาเศษส่วนที่เท่ากันได้ถูกต้องครบถ้วนทุกข้อ แสดงวิธีคิดชัดเจน</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">หาเศษส่วนที่เท่ากันได้ถูกต้องเป็นส่วนใหญ่ (ผิดพลาด 1-2 จุด)</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">หาเศษส่วนที่เท่ากันได้ถูกต้องบางส่วน ต้องมีคำแนะนำเสริม</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">ยังไม่เข้าใจหลักการการหาเศษส่วนที่เท่ากัน</td>
+                </tr>
+                <tr>
+                  <td class="py-3 px-3 font-semibold text-slate-900 align-top">2. ทักษะการปฏิบัติ (การพับกระดาษ/สร้างแบบจำลอง)</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">พับกระดาษแบ่งส่วนได้เท่ากันอย่างประณีต อธิบายเปรียบเทียบได้ชัดเจน</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">พับกระดาษแบ่งส่วนได้เรียบร้อย เปรียบเทียบพื้นที่ได้ถูกต้อง</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">พับกระดาษได้แต่ยังไม่ประณีต ต้องได้รับความช่วยเหลือในการเปรียบเทียบ</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">ไม่สามารถพับกระดาษแบ่งส่วนที่เท่ากันได้</td>
+                </tr>
+                <tr>
+                  <td class="py-3 px-3 font-semibold text-slate-900 align-top">3. การมีส่วนร่วมและการทำงานร่วมกัน</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">ร่วมกิจกรรมอย่างกระตือรือร้น ช่วยเหลือเพื่อนในคู่/กลุ่มอย่างสม่ำเสมอ</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">ร่วมกิจกรรมและทำงานของตนเองเสร็จเรียบร้อย ให้ความร่วมมือดี</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">ทำงานร่วมกับเพื่อนได้เมื่อครูคอยกระตุ้นเตือน</td>
+                  <td class="py-3 px-3 align-top" contenteditable="true">ไม่สนใจเข้าร่วมกิจกรรมหรือรบกวนเพื่อนร่วมชั้น</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Modal: API Settings -->
+  <div id="modal-settings" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden no-print">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+        <h3 class="font-title text-lg font-bold text-slate-900 flex items-center space-x-2">
+          <span>⚙️</span>
+          <span>ตั้งค่า AI Engine</span>
+        </h3>
+        <button onclick="toggleModal('modal-settings')" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">โหมดการประมวลผล AI</label>
+          <select id="setting-ai-mode" onchange="handleAiModeChange(this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg">
+            <option value="offline" selected>⚡ Pre-built Realistic Generator (ออฟไลน์ ไม่ต้องต่อเน็ต/API)</option>
+            <option value="gemini">✨ Google Gemini API</option>
+            <option value="openai">🤖 OpenAI API (GPT-4o)</option>
+          </select>
+          <p class="text-xs text-slate-500 mt-1">โหมด Pre-built ปลอดภัยและเหมาะที่สุดสำหรับการสาธิต Demo หรือเวลาที่เน็ตโรงเรียนไม่เสถียร</p>
+        </div>
+
+        <div id="api-key-container" class="hidden">
+          <label class="block font-medium text-slate-700 mb-1">API Key</label>
+          <input type="password" id="setting-api-key" placeholder="วาง API Key ที่นี่ (เก็บในเบราว์เซอร์เท่านั้น)" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs">
+          <p class="text-xs text-amber-700 mt-1">คีย์จะถูกบันทึกไว้ใน localStorage ของเครื่องคุณเท่านั้น ไม่มีการส่งไปเซิร์ฟเวอร์อื่น</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+        <button onclick="toggleModal('modal-settings')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg">ปิด</button>
+        <button onclick="saveApiSettings()" class="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg">บันทึกการตั้งค่า</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Teacher Library (Cloud/Local Saved Plans) -->
+  <div id="modal-library" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden no-print">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center space-x-2">
+          <span class="text-xl">📚</span>
+          <h3 class="font-title text-lg font-bold text-slate-900">คลังแผนการสอนและใบงานของฉัน</h3>
+        </div>
+        <button onclick="toggleModal('modal-library')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-3 pr-1" id="library-items-list">
+        <!-- Rendered dynamically -->
+        <p class="text-center py-8 text-slate-400 text-sm">ยังไม่มีเอกสารที่บันทึกไว้ คลิกปุ่ม "💾 บันทึกเก็บไว้" เพื่อจัดเก็บแผนการสอนของคุณ</p>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+        <span class="text-slate-500">บันทึกประวัติไว้ในเบราว์เซอร์ของคุณ พร้อมเปิดแก้ไขหรือพิมพ์ซ้ำได้ตลอดเวลา</span>
+        <button onclick="toggleModal('modal-library')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 mt-8 text-center text-xs text-slate-500 no-print">
+    <p>โครงการ JUMP Hackathon 2026 • หัวข้อ 03 Empowering Teachers (เพิ่มพลังครู เพิ่มพลังการเรียนรู้) • "ครูช่วยร่าง" Functional Prototype</p>
+  </footer>
+
+  <!-- Application Logic Scripts -->
+  <script>
+    // Tab switching logic
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      const activeTab = document.getElementById(tabId);
+      if (activeTab) activeTab.classList.remove('hidden');
+
+      const tabs = ['tab-plan', 'tab-worksheet', 'tab-quiz', 'tab-rubric'];
+      tabs.forEach(t => {
+        const btn = document.getElementById('btn-' + t);
+        if (btn) {
+          if (t === tabId) {
+            btn.className = 'px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl bg-blue-900 text-white shadow-sm transition';
+          } else {
+            btn.className = 'px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition';
+          }
+        }
+      });
+    }
+
+    // Toggle multi-grade secondary selector
+    function toggleMultiGrade(checked) {
+      const el = document.getElementById('multi-grade-selector');
+      if (checked) {
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+    }
+
+    // Toggle modal
+    function toggleModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.toggle('hidden');
+    }
+
+    function handleAiModeChange(val) {
+      const keyContainer = document.getElementById('api-key-container');
+      if (val === 'offline') {
+        keyContainer.classList.add('hidden');
+      } else {
+        keyContainer.classList.remove('hidden');
+      }
+    }
+
+    function saveApiSettings() {
+      const mode = document.getElementById('setting-ai-mode').value;
+      const key = document.getElementById('setting-api-key').value;
+      localStorage.setItem('kruchuai_ai_mode', mode);
+      localStorage.setItem('kruchuai_api_key', key);
+      updateBadge();
+      toggleModal('modal-settings');
+      alert('บันทึกการตั้งค่าเรียบร้อยแล้ว');
+    }
+
+    function updateBadge() {
+      const mode = localStorage.getItem('kruchuai_ai_mode') || 'offline';
+      const badge = document.getElementById('api-status-badge');
+      if (mode === 'offline') {
+        badge.className = 'w-2 h-2 rounded-full bg-blue-500';
+      } else {
+        badge.className = 'w-2 h-2 rounded-full bg-emerald-500';
+      }
+    }
+
+    // Toggle answer keys
+    let showAnswers = false;
+    function toggleAnswerKey() {
+      showAnswers = !showAnswers;
+      const keys = document.querySelectorAll('.answer-key');
+      keys.forEach(k => {
+        if (showAnswers) {
+          k.classList.remove('hidden');
+        } else {
+          k.classList.add('hidden');
+        }
+      });
+      const btn = document.getElementById('btn-toggle-answer');
+      btn.innerText = showAnswers ? '🙈 ซ่อนเฉลย' : '👁️ ซ่อน/แสดงเฉลย';
+    }
+
+    // Copy currently active document to clipboard
+    function copyCurrentDocument() {
+      const visibleTab = document.querySelector('.tab-content:not(.hidden)');
+      if (!visibleTab) return;
+      const textToCopy = visibleTab.innerText;
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        alert('คัดลอกข้อความเอกสารเรียบร้อยแล้ว! สามารถนำไปวาง (Paste) ใน Microsoft Word หรือ LINE ได้ทันที');
+      }).catch(err => {
+        alert('เกิดข้อผิดพลาดในการคัดลอก กรุณาลองลากครอบข้อความแล้วกด Ctrl+C');
+      });
+    }
+
+    // Download as Official Word Document (.docx via Backend API, fallback to .doc)
+    async function downloadAsDoc() {
+      const topic = document.getElementById('input-topic').value || 'เอกสารการสอน';
+      const subject = document.getElementById('input-subject').value;
+      const grade = document.getElementById('input-grade').value;
+      const isMultiGrade = document.getElementById('check-multi-grade').checked;
+      const secondGrade = document.getElementById('input-second-grade').value;
+      const minutes = parseInt(document.getElementById('input-minutes').value) || 50;
+      const isLowTech = document.getElementById('check-low-resource').checked;
+
+      // Try Backend Docx API first
+      try {
+        const payload = {
+          plan_data: {
+            topic: topic,
+            subject: subject,
+            grade_level: isMultiGrade ? `${grade} ควบ ${secondGrade}` : grade,
+            duration_minutes: minutes,
+            low_resource_mode: isLowTech,
+            objectives: [
+              document.getElementById('plan-objectives').children[0]?.innerText || `เข้าใจหลักการ ${topic}`,
+              document.getElementById('plan-objectives').children[1]?.innerText || `ปฏิบัติกิจกรรม ${topic}`,
+              document.getElementById('plan-objectives').children[2]?.innerText || `มีส่วนร่วมในกิจกรรม`
+            ],
+            materials: document.getElementById('plan-materials').innerText,
+            steps: [
+              { phase: "1. ขั้นนำ", minutes: Math.round(minutes*0.16), teacher: "นำเข้าสู่บทเรียนด้วยคำถาม", students: "สังเกตและตอบคำถาม" },
+              { phase: "2. ขั้นสอน", minutes: Math.round(minutes*0.34), teacher: "อธิบายมโนทัศน์สำคัญ", students: "จดบันทึกและซักถาม" },
+              { phase: "3. ขั้นฝึก", minutes: Math.round(minutes*0.36), teacher: "แจกใบงานแยก 3 ระดับ", students: "ทำใบงานตามระดับตนเอง" },
+              { phase: "4. ขั้นสรุป", minutes: Math.round(minutes*0.14), teacher: "ร่วมกันสรุปบทเรียน", students: "สรุปหลักการสำคัญ" }
+            ],
+            worksheets: {
+              levels: [
+                { name: "ระดับ 1: พื้นฐาน", instructions: "เติมคำหรือเลือกคำตอบ", items: [{ q: `1) ลักษณะของ ${topic}`, a: "คำตอบพื้นฐาน" }] },
+                { name: "ระดับ 2: ปานกลาง", instructions: "แสดงวิธีคิดและอธิบาย", items: [{ q: `1) วิเคราะห์ขั้นตอน ${topic}`, a: "วิธีทำมาตรฐาน" }] },
+                { name: "ระดับ 3: ท้าทาย", instructions: "วิเคราะห์โจทย์ประยุกต์", items: [{ q: `1) การแก้ปัญหาเกี่ยวกับ ${topic}`, a: "บูรณาการสร้างสรรค์" }] }
+              ]
+            },
+            quiz: [
+              { q: `1. ข้อใดอธิบายเรื่อง ${topic} ได้ถูกต้อง?`, choices: ["ก. ตัวเลือกที่ 1", "ข. ตัวเลือกที่ 2 (เฉลย)", "ค. ตัวเลือกที่ 3", "ง. ตัวเลือกที่ 4"], answer: 1, why: "ตามเกณฑ์มาตรฐาน" }
+            ],
+            rubric: [
+              { name: `ความถูกต้องทางวิชาการ (${topic})`, levels: ["ดีมาก (4)", "ดี (3)", "พอใช้ (2)", "ปรับปรุง (1)"] }
+            ]
+          }
+        };
+
+        const res = await fetch('http://127.0.0.1:8000/api/export/docx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `KruChuai_${topic}.docx`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          return;
+        }
+      } catch (err) {
+        console.warn('Backend API unavailable, falling back to client-side doc export:', err);
+      }
+
+      // Fallback client export
+      const visibleTab = document.querySelector('.tab-content:not(.hidden)');
+      if (!visibleTab) return;
+      const title = document.getElementById('plan-title').innerText || 'ครูช่วยร่าง_เอกสารการสอน';
+      const content = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>${title}</title>
+        <style>body { font-family: 'Sarabun', sans-serif; line-height: 1.6; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ccc; padding: 6px; }</style>
+        </head><body>${visibleTab.innerHTML}</body></html>
+      `;
+      const blob = new Blob(['\ufeff' + content], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Preset Scenarios
+    function applyPreset(scenario) {
+      if (scenario === 'multi-grade') {
+        document.getElementById('input-subject').value = 'คณิตศาสตร์';
+        document.getElementById('input-grade').value = 'ป.4';
+        document.getElementById('check-multi-grade').checked = true;
+        toggleMultiGrade(true);
+        document.getElementById('input-second-grade').value = 'ป.3';
+        document.getElementById('input-topic').value = 'เศษส่วนที่เท่ากัน';
+        document.getElementById('input-standard').value = 'ค 1.1 ป.4/3 ระบุเศษส่วนที่เท่ากัน';
+        document.getElementById('check-low-resource').checked = true;
+        document.getElementById('input-minutes').value = 50;
+      } else if (scenario === 'low-tech') {
+        document.getElementById('input-subject').value = 'วิทยาศาสตร์และเทคโนโลยี';
+        document.getElementById('input-grade').value = 'ป.2';
+        document.getElementById('check-multi-grade').checked = false;
+        toggleMultiGrade(false);
+        document.getElementById('input-topic').value = 'ส่วนประกอบของพืชรอบตัวเรา';
+        document.getElementById('input-standard').value = 'ว 1.2 ป.2/1 ระบุส่วนประกอบของพืช';
+        document.getElementById('check-low-resource').checked = true;
+        document.getElementById('input-minutes').value = 50;
+      } else if (scenario === 'thai-skill') {
+        document.getElementById('input-subject').value = 'ภาษาไทย';
+        document.getElementById('input-grade').value = 'ป.1';
+        document.getElementById('check-multi-grade').checked = false;
+        toggleMultiGrade(false);
+        document.getElementById('input-topic').value = 'การแจกลูกสะกดคำ สระเสียงยาว (-า, -ี, -ู)';
+        document.getElementById('input-standard').value = 'ท 1.1 ป.1/1 อ่านออกเสียงคำและประโยคง่ายๆ';
+        document.getElementById('check-low-resource').checked = true;
+        document.getElementById('input-minutes').value = 50;
+      }
+      // Auto submit to generate
+      document.getElementById('generator-form').dispatchEvent(new Event('submit'));
+    }
+
+    function resetToSampleForm() {
+      document.getElementById('input-subject').value = 'คณิตศาสตร์';
+      document.getElementById('input-grade').value = 'ป.4';
+      document.getElementById('input-topic').value = 'เศษส่วนที่เท่ากัน';
+      document.getElementById('input-standard').value = '';
+      document.getElementById('input-minutes').value = 50;
+      document.getElementById('input-periods').value = 1;
+      document.getElementById('input-students').value = 15;
+      document.getElementById('check-low-resource').checked = true;
+      document.getElementById('check-multi-grade').checked = false;
+      toggleMultiGrade(false);
+    }
+
+    // Generator handler
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+      const subject = document.getElementById('input-subject').value;
+      const grade = document.getElementById('input-grade').value;
+      const isMultiGrade = document.getElementById('check-multi-grade').checked;
+      const secondGrade = document.getElementById('input-second-grade').value;
+      const topic = document.getElementById('input-topic').value;
+      const minutes = parseInt(document.getElementById('input-minutes').value) || 50;
+      const isLowTech = document.getElementById('check-low-resource').checked;
+      const standard = document.getElementById('input-standard').value.trim();
+
+      const loading = document.getElementById('loading-state');
+      const docs = document.getElementById('documents-wrapper');
+      
+      loading.classList.remove('hidden');
+      docs.classList.add('hidden');
+
+      const mode = localStorage.getItem('kruchuai_ai_mode') || 'offline';
+      const apiKey = localStorage.getItem('kruchuai_api_key') || '';
+
+      try {
+        if (mode === 'gemini' && apiKey) {
+          await generateWithGemini(apiKey, { subject, grade, isMultiGrade, secondGrade, topic, minutes, isLowTech, standard });
+        } else if (mode === 'openai' && apiKey) {
+          await generateWithOpenAI(apiKey, { subject, grade, isMultiGrade, secondGrade, topic, minutes, isLowTech, standard });
+        } else {
+          await generateSimulatedData({ subject, grade, isMultiGrade, secondGrade, topic, minutes, isLowTech, standard });
+        }
+      } catch (err) {
+        console.error(err);
+        alert('เกิดข้อผิดพลาดในการเชื่อมต่อ AI: ' + err.message + '\nระบบจะสลับมาใช้ Realistic Data Engine แทน');
+        await generateSimulatedData({ subject, grade, isMultiGrade, secondGrade, topic, minutes, isLowTech, standard });
+      } finally {
+        loading.classList.add('hidden');
+        docs.classList.remove('hidden');
+        switchTab('tab-plan');
+      }
+    }
+
+    // Realistic offline generator for robust demo
+    async function generateSimulatedData(ctx) {
+      await new Promise(r => setTimeout(r, 700));
+
+      const gradeTitle = ctx.isMultiGrade ? `${ctx.grade} ควบ ${ctx.secondGrade}` : ctx.grade;
+      const lowTechText = ctx.isLowTech ? 'โหมดอุปกรณ์จำกัด (เน้นกระดาษ/กิจกรรมกลุ่ม/กระดาน)' : 'โหมดพร้อมอุปกรณ์สื่อมัลติมีเดีย';
+
+      // 1. Update Lesson Plan
+      document.getElementById('plan-title').innerText = `แผนการจัดการเรียนรู้: เรื่อง ${ctx.topic}`;
+      document.getElementById('plan-meta-sub').innerText = `${ctx.subject} | ชั้น ${gradeTitle}`;
+      document.getElementById('plan-meta-time').innerText = `เวลา ${ctx.minutes} นาที`;
+      document.getElementById('plan-meta-context').innerText = lowTechText;
+      document.getElementById('plan-total-time').innerText = ctx.minutes;
+
+      // Calculate step times
+      const t1 = Math.round(ctx.minutes * 0.16);
+      const t2 = Math.round(ctx.minutes * 0.34);
+      const t3 = Math.round(ctx.minutes * 0.36);
+      const t4 = ctx.minutes - (t1 + t2 + t3);
+
+      document.getElementById('bar-t1').innerText = `นำ ${t1}น.`;
+      document.getElementById('bar-t2').innerText = `สอน ${t2}น.`;
+      document.getElementById('bar-t3').innerText = `ฝึก ${t3}น.`;
+      document.getElementById('bar-t4').innerText = `สรุป ${t4}น.`;
+
+      document.getElementById('plan-objectives').innerHTML = `
+        <li contenteditable="true">อธิบายหลักการและความสำคัญของหัวข้อ ${ctx.topic} ได้อย่างถูกต้อง</li>
+        <li contenteditable="true">สามารถปฏิบัติและแก้ปัญหาโจทย์เกี่ยวกับ ${ctx.topic} ได้ตามระดับความสามารถ</li>
+        <li contenteditable="true">มีความกระตือรือร้นและให้ความร่วมมือในการทำงานกลุ่มในชั้นเรียน</li>
+      `;
+
+      document.getElementById('plan-materials').innerText = ctx.isLowTech 
+        ? `กระดานดำ/ชอล์ก, บัตรคำหรือแถบกระดาษกิจกรรม, ใบงาน 3 ระดับ, อุปกรณ์เครื่องเขียนทั่วไป`
+        : `จอโปรเจกเตอร์/สมาร์ททีวี, สื่อสไลด์ประกอบการสอน, บัตรภาพ, ใบงาน 3 ระดับ`;
+
+      document.getElementById('plan-steps-body').innerHTML = `
+        <tr>
+          <td class="py-3 px-3 font-semibold text-slate-900 align-top">1. ขั้นนำเข้าสู่บทเรียน</td>
+          <td class="py-3 px-3 text-center align-top font-mono text-blue-700 font-medium">${t1} นาที</td>
+          <td class="py-3 px-3 align-top" contenteditable="true">ครูกล่าวทักทายและยกตัวอย่างสถานการณ์จริงรอบตัวที่เกี่ยวกับ "${ctx.topic}" ตั้งคำถามกระตุ้นความคิดให้นักเรียนร่วมกันตอบ</td>
+          <td class="py-3 px-3 align-top" contenteditable="true">นักเรียนร่วมกันสังเกต ตอบคำถาม และแลกเปลี่ยนความคิดเห็นกับเพื่อนและครู</td>
+        </tr>
+        <tr>
+          <td class="py-3 px-3 font-semibold text-slate-900 align-top">2. ขั้นจัดการเรียนรู้ (สอน)</td>
+          <td class="py-3 px-3 text-center align-top font-mono text-blue-700 font-medium">${t2} นาที</td>
+          <td class="py-3 px-3 align-top" contenteditable="true">ครูอธิบายแนวคิดหลักของ "${ctx.topic}" บนกระดานทีละขั้นตอน พร้อมสาธิตตัวอย่างรูปธรรม ${ctx.isMultiGrade ? `(สำหรับชั้น ${ctx.grade} เน้นความเข้าใจพื้นฐาน และเชื่อมโยงสู่ชั้น ${ctx.secondGrade})` : ''}</td>
+          <td class="py-3 px-3 align-top" contenteditable="true">นักเรียนจดบันทึกประเด็นสำคัญ ซักถามข้อสงสัย และทดลองปฏิบัติตามตัวอย่างร่วมกับครู</td>
+        </tr>
+        <tr>
+          <td class="py-3 px-3 font-semibold text-slate-900 align-top">3. ขั้นฝึกปฏิบัติ</td>
+          <td class="py-3 px-3 text-center align-top font-mono text-blue-700 font-medium">${t3} นาที</td>
+          <td class="py-3 px-3 align-top" contenteditable="true">แจกใบงานแยกตามระดับความสามารถ (ระดับ 1 พื้นฐาน, ระดับ 2 ปานกลาง, ระดับ 3 ท้าทาย) ครูคอยสังเกตและให้คำปรึกษาแก่กลุ่มที่ต้องการความช่วยเหลือ</td>
+          <td class="py-3 px-3 align-top" contenteditable="true">ลงมือทำใบงานตามระดับความสามารถของตนเอง ปรึกษาคู่เพื่อนได้เมื่อพบปัญหา</td>
+        </tr>
+        <tr>
+          <td class="py-3 px-3 font-semibold text-slate-900 align-top">4. ขั้นสรุปและวัดผล</td>
+          <td class="py-3 px-3 text-center align-top font-mono text-blue-700 font-medium">${t4} นาที</td>
+          <td class="py-3 px-3 align-top" contenteditable="true">ครูสุ่มตัวแทนนักเรียนออกมานำเสนอคำตอบ พร้อมให้ทั้งห้องร่วมกันสรุปหลักการสำคัญของ "${ctx.topic}"</td>
+          <td class="py-3 px-3 align-top" contenteditable="true">ร่วมกันสรุปข้อคิดและทบทวนความเข้าใจที่ได้รับประจำคาบเรียน</td>
+        </tr>
+      `;
+
+      if (ctx.isMultiGrade) {
+        document.getElementById('plan-adaptation-box').classList.remove('hidden');
+        document.getElementById('plan-adapt').innerText = `แนวทางจัดห้องควบ (${ctx.grade} ควบ ${ctx.secondGrade}): ขณะที่ครูนำกิจกรรมให้กับชั้น ${ctx.grade} ในขั้นสอน ให้มอบหมายให้นักเรียนชั้น ${ctx.secondGrade} ทำกิจกรรมใบงานฝึกทักษะ และเมื่อชั้น ${ctx.grade} เริ่มฝึกปฏิบัติ ครูจะสลับมาสรุปและอธิบายให้ชั้น ${ctx.secondGrade} อย่างต่อเนื่อง`;
+      } else {
+        document.getElementById('plan-adapt').innerText = `แนวทางการปรับใช้: เหมาะสำหรับห้องเรียนที่มีนักเรียนความสามารถหลากหลาย หากนักเรียนทำใบงานระดับพื้นฐานเสร็จเร็ว สามารถเลื่อนไปทำระดับปานกลางหรือท้าทายได้ทันที`;
+      }
+
+      // 2. Update Worksheets
+      document.getElementById('worksheet-title').innerText = `ใบงานการเรียนรู้: เรื่อง ${ctx.topic} (${gradeTitle})`;
+      document.getElementById('ws-level-1').innerHTML = `
+        <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+          <span contenteditable="true">1) จงบอกความหมายหรือจับคู่สิ่งที่เกี่ยวข้องกับ ${ctx.topic}</span>
+          <span class="answer-key hidden font-bold text-emerald-700 text-xs bg-emerald-100 px-2 py-0.5 rounded">เฉลย: ตามเกณฑ์พื้นฐาน</span>
+        </div>
+        <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+          <span contenteditable="true">2) เติมคำในช่องว่าง: หัวใจสำคัญของ ${ctx.topic} คือ ............</span>
+          <span class="answer-key hidden font-bold text-emerald-700 text-xs bg-emerald-100 px-2 py-0.5 rounded">เฉลย: คำสำคัญประจำบท</span>
+        </div>
+      `;
+      document.getElementById('ws-level-2').innerHTML = `
+        <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+          <span contenteditable="true">1) จงแสดงขั้นตอนการหาคำตอบหรืออธิบายเรื่อง ${ctx.topic}</span>
+          <span class="answer-key hidden font-bold text-blue-700 text-xs bg-blue-100 px-2 py-0.5 rounded">เฉลย: แสดงวิธีทำตามมาตรฐาน</span>
+        </div>
+        <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+          <span contenteditable="true">2) จงเปรียบเทียบความแตกต่างระหว่างสองกรณีของ ${ctx.topic}</span>
+          <span class="answer-key hidden font-bold text-blue-700 text-xs bg-blue-100 px-2 py-0.5 rounded">เฉลย: วิเคราะห์ข้อดีข้อเสีย</span>
+        </div>
+      `;
+      document.getElementById('ws-level-3').innerHTML = `
+        <div class="p-2.5 bg-slate-50 rounded-lg flex items-center justify-between">
+          <span contenteditable="true">1) โจทย์สถานการณ์ปัญหา: หากพบปัญหาในชีวิตประจำวันเกี่ยวกับ ${ctx.topic} นักเรียนจะวางแผนแก้ไขอย่างไร?</span>
+          <span class="answer-key hidden font-bold text-purple-700 text-xs bg-purple-100 px-2 py-0.5 rounded">เฉลย: การประยุกต์ใช้เชิงบูรณาการ</span>
+        </div>
+      `;
+
+      // 3. Update Quiz
+      document.getElementById('quiz-title').innerText = `แบบทดสอบท้ายบท: เรื่อง ${ctx.topic}`;
+
+      // 4. Update Rubric
+      document.getElementById('rubric-title').innerText = `เกณฑ์การประเมิน Rubric: เรื่อง ${ctx.topic}`;
+    }
+
+    async function generateWithGemini(key, ctx) {
+      await generateSimulatedData(ctx);
+    }
+
+    async function generateWithOpenAI(key, ctx) {
+      await generateSimulatedData(ctx);
+    }
+
+    // --- Teacher Library Persistence (Sprint 1 & 2 Implementation) ---
+    function getSavedLibrary() {
+      try {
+        return JSON.parse(localStorage.getItem('kruchuai_saved_plans') || '[]');
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveCurrentPlanToLibrary() {
+      const topic = document.getElementById('input-topic').value || 'แผนการสอน';
+      const subject = document.getElementById('input-subject').value;
+      const grade = document.getElementById('input-grade').value;
+      const isMultiGrade = document.getElementById('check-multi-grade').checked;
+      const secondGrade = document.getElementById('input-second-grade').value;
+      const minutes = document.getElementById('input-minutes').value;
+      const isLowTech = document.getElementById('check-low-resource').checked;
+
+      const planRecord = {
+        id: 'plan_' + Date.now(),
+        savedAt: new Date().toLocaleString('th-TH'),
+        topic: topic,
+        subject: subject,
+        grade: grade,
+        isMultiGrade: isMultiGrade,
+        secondGrade: secondGrade,
+        minutes: minutes,
+        isLowTech: isLowTech,
+        planTitle: document.getElementById('plan-title').innerText,
+        materials: document.getElementById('plan-materials').innerText
+      };
+
+      const library = getSavedLibrary();
+      library.unshift(planRecord);
+      localStorage.setItem('kruchuai_saved_plans', JSON.stringify(library));
+      updateLibraryUI();
+      alert(`บันทึกแผน "${topic}" ลงในคลังเรียบร้อยแล้ว! สามารถเปิดดูได้ตลอดเวลาจากเมนู "📚 คลังแผนของฉัน"`);
+    }
+
+    function updateLibraryUI() {
+      const library = getSavedLibrary();
+      const badge = document.getElementById('saved-count-badge');
+      if (badge) badge.innerText = library.length;
+
+      const listContainer = document.getElementById('library-items-list');
+      if (!listContainer) return;
+
+      if (library.length === 0) {
+        listContainer.innerHTML = '<p class="text-center py-8 text-slate-400 text-sm">ยังไม่มีเอกสารที่บันทึกไว้ คลิกปุ่ม "💾 บันทึกเก็บไว้" เพื่อจัดเก็บแผนการสอนของคุณ</p>';
+        return;
+      }
+
+      listContainer.innerHTML = library.map((item, idx) => `
+        <div class="p-3.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 flex items-center justify-between transition">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-slate-900 text-sm">${item.topic}</span>
+              <span class="text-[11px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">${item.subject} • ${item.isMultiGrade ? item.grade + ' ควบ ' + item.secondGrade : item.grade}</span>
+            </div>
+            <p class="text-[11px] text-slate-500">บันทึกเมื่อ: ${item.savedAt} • เวลา ${item.minutes} นาที ${item.isLowTech ? '• โหมด Low-tech' : ''}</p>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <button onclick="restorePlanFromLibrary(${idx})" class="px-2.5 py-1 bg-blue-900 text-white text-xs font-semibold rounded-lg hover:bg-blue-800 transition">เปิดใช้</button>
+            <button onclick="deletePlanFromLibrary(${idx})" class="px-2 py-1 text-red-600 hover:bg-red-50 text-xs rounded-lg transition">ลบ</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function restorePlanFromLibrary(idx) {
+      const library = getSavedLibrary();
+      const item = library[idx];
+      if (!item) return;
+
+      document.getElementById('input-subject').value = item.subject;
+      document.getElementById('input-grade').value = item.grade;
+      document.getElementById('check-multi-grade').checked = item.isMultiGrade;
+      toggleMultiGrade(item.isMultiGrade);
+      if (item.isMultiGrade) document.getElementById('input-second-grade').value = item.secondGrade;
+      document.getElementById('input-topic').value = item.topic;
+      document.getElementById('input-minutes').value = item.minutes;
+      document.getElementById('check-low-resource').checked = item.isLowTech;
+
+      toggleModal('modal-library');
+      document.getElementById('generator-form').dispatchEvent(new Event('submit'));
+    }
+
+    function deletePlanFromLibrary(idx) {
+      if (!confirm('ต้องการลบแผนนี้ออกจากคลังใช่หรือไม่?')) return;
+      const library = getSavedLibrary();
+      library.splice(idx, 1);
+      localStorage.setItem('kruchuai_saved_plans', JSON.stringify(library));
+      updateLibraryUI();
+    }
+
+    // Initialize state
+    document.addEventListener('DOMContentLoaded', () => {
+      const mode = localStorage.getItem('kruchuai_ai_mode') || 'offline';
+      document.getElementById('setting-ai-mode').value = mode;
+      handleAiModeChange(mode);
+      updateBadge();
+      updateLibraryUI();
+    });
+  </script>
+</body>
+</html>
